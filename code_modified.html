@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساعدك الذكي الشخصي</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap'); /* For English */
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #17a2b8;
+            --accent-color: #ffc107;
+            --background-color: #f4f6f9;
+            --surface-color: #ffffff;
+            --text-color: #343a40;
+            --text-muted-color: #6c757d;
+            --user-message-bg: #e0f7fa;
+            --ai-message-bg: #e8eaf6;
+            --button-hover-bg: #0056b3;
+            --input-border-color: #ced4da;
+            --font-family-ar: 'Cairo', sans-serif;
+            --font-family-en: 'Roboto', sans-serif;
+            --box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+            --border-radius: 12px;
+        }
+        body {
+            font-family: var(--font-family-ar); /* Default to Arabic */
+            margin: 0;
+            padding: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        body.en {
+            font-family: var(--font-family-en);
+            direction: ltr;
+        }
+        body.en .close-button {
+            left: auto;
+            right: 20px;
+        }
+        body.en .message.user { align-self: flex-end; border-bottom-left-radius: 18px; border-bottom-right-radius: 6px; }
+        body.en .message.ai { align-self: flex-start; border-bottom-right-radius: 18px; border-bottom-left-radius: 6px; }
+        body.en .message.user .timestamp { text-align: left; }
+        body.en .message.ai .timestamp { text-align: right; }
+        body.en .send-button { margin-right: 0; margin-left: 12px;}
+        body.en #typing-indicator-container { justify-content: flex-start; }
+        .screen {
+            width: 100%;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .screen.active {
+            display: flex !important;
+            opacity: 1;
+            transform: scale(1);
+            z-index: 10;
+        }
+        #chat-screen {
+            background-color: var(--surface-color);
+        }
+        #chat-screen.active {
+             z-index: 20;
+        }
+        .content-wrapper {
+            background-color: var(--surface-color);
+            padding: 40px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+        .content-wrapper h1, .content-wrapper h2 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+        .content-wrapper p {
+            color: var(--text-muted-color);
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        .action-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1.1em;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,123,255,0.2);
+        }
+        .action-button:hover {
+            background-color: var(--button-hover-bg);
+            transform: translateY(-2px);
+        }
+        .input-field {
+            width: calc(100% - 24px);
+            padding: 12px;
+            margin-bottom: 18px;
+            border: 1px solid var(--input-border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .input-field:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+            outline: none;
+        }
+        body.ar .input-field { font-family: var(--font-family-ar); }
+        body.en .input-field { font-family: var(--font-family-en); }
+        .chat-header {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 18px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.3em;
+            font-weight: 600;
+            color: white;
+        }
+        .header-actions button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.4em;
+            cursor: pointer;
+            margin-right: 15px; /* Default for RTL */
+            transition: opacity 0.2s ease;
+        }
+        body.en .header-actions button { margin-right: 0; margin-left: 15px; } /* LTR */
+        .header-actions button:hover {
+            opacity: 0.8;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: var(--background-color);
+        }
+        .message {
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 70%;
+            line-height: 1.6;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInMessage 0.5s forwards;
+        }
+        @keyframes fadeInMessage {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .message.user {
+            background-color: var(--user-message-bg);
+            color: var(--text-color);
+            align-self: flex-start; /* RTL default */
+            border-bottom-left-radius: 6px;
+        }
+        .message.ai {
+            background-color: var(--ai-message-bg);
+            color: var(--text-color);
+            align-self: flex-end; /* RTL default */
+            border-bottom-right-radius: 6px;
+        }
+         .message.system {
+            background-color: #fff3cd;
+            color: #856404;
+            align-self: center;
+            max-width: 80%;
+            text-align: center;
+            border-radius: 8px;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+        .message .sender {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.85em;
+            color: var(--primary-color);
+        }
+        .message.ai .sender {
+            color: var(--secondary-color);
+        }
+        .message.system .sender {
+            display: none;
+        }
+        .message .timestamp {
+            font-size: 0.75em;
+            color: var(--text-muted-color);
+            display: block;
+            margin-top: 5px;
+            text-align: left; /* RTL default */
+        }
+        .message.user .timestamp {
+             text-align: right; /* RTL default */
+        }
+        .message.system .timestamp {
+            text-align: center;
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 15px 20px;
+            border-top: 1px solid var(--input-border-color);
+            background-color: var(--surface-color);
+            align-items: center;
+        }
+        .chat-input-area textarea {
+            flex-grow: 1;
+            padding: 12px 18px;
+            border: 1px solid var(--input-border-color);
+            border-radius: 25px;
+            resize: none;
+            font-size: 1em;
+            min-height: 24px;
+            max-height: 120px;
+            overflow-y: auto;
+            line-height: 1.5;
+            transition: border-color 0.3s ease;
+        }
+        body.ar .chat-input-area textarea { font-family: var(--font-family-ar); }
+        body.en .chat-input-area textarea { font-family: var(--font-family-en); }
+        .chat-input-area textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+        .send-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            margin-right: 12px; /* RTL default */
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 8px rgba(0,123,255,0.25);
+        }
+        .send-button:hover {
+            background-color: var(--button-hover-bg);
+            transform: scale(1.05);
+        }
+        .send-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background-color: var(--surface-color);
+            margin: auto;
+            padding: 30px;
+            border: none;
+            width: 90%;
+            max-width: 450px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            position: relative;
+            text-align: center;
+        }
+        .modal-content h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        .close-button {
+            color: var(--text-muted-color);
+            position: absolute;
+            top: 15px;
+            left: 20px; /* RTL default */
+            font-size: 28px;
+            font-weight: bold;
+            transition: color 0.2s ease;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: var(--text-color);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .settings-options button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+        body.ar .settings-options button {font-family: var(--font-family-ar);}
+        body.en .settings-options button {font-family: var(--font-family-en);}
+        .settings-options button:hover {
+            background-color: #138496;
+        }
+         .settings-options button.danger {
+            background-color: #dc3545;
+        }
+        .settings-options button.danger:hover {
+            background-color: #c82333;
+        }
+        .typing-indicator-container {
+            min-height: 30px;
+            display: flex;
+            justify-content: flex-end; /* RTL default */
+            padding: 0 20px;
+        }
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            margin: 0;
+            max-width: 100px;
+            background-color: var(--ai-message-bg);
+            border-radius: 18px;
+            border-bottom-right-radius: 6px; /* RTL default */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        body.en .typing-indicator { border-bottom-right-radius: 18px; border-bottom-left-radius: 6px; }
+        .typing-indicator span {
+            height: 7px;
+            width: 7px;
+            background-color: var(--secondary-color);
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+        @media (max-width: 768px) {
+            .content-wrapper { padding: 30px; }
+            #chat-screen { border-radius: 0; }
+            .chat-header h2 { font-size: 1.15em; }
+            .message { max-width: 85%; }
+        }
+    </style>
+</head>
+<body class="ar"> <!-- Start with Arabic as default -->
+    <div id="welcome-screen" class="screen">
+        <div class="content-wrapper">
+            <h1 data-i18n="welcomeTitle">✨ مساعدك الذكي الشخصي ✨</h1>
+            <p data-i18n="welcomeMessage">مستعد لخوض تجربة دردشة فريدة من نوعها، مبنية على أحدث (محاكاة) تقنيات الذكاء.</p>
+            <button id="welcome-button" class="action-button" data-i18n="welcomeButton">مرحباً بك! لنبدأ</button>
+        </div>
+    </div>
+    <div id="auth-screen" class="screen">
+        <div class="content-wrapper">
+            <h2 data-i18n="authTitle">مرحباً بك!</h2>
+            <p data-i18n="authMessage">أنا مساعدك الذكي. لأتمكن من مناداتك باسمك وتخصيص تجربتنا معاً،</p>
+            <label for="displayName" data-i18n="namePromptLabel" style="display:block; margin-bottom: 10px; font-weight: 600;">ما هو اسمك الجميل؟</label>
+            <input type="text" id="displayName" class="input-field" data-i18n-placeholder="namePlaceholder" placeholder="اكتب اسمك هنا..." required>
+            <button id="proceed-to-chat-button" class="action-button" data-i18n="authButton">هذا هو اسمي، لننطلق!</button>
+        </div>
+    </div>
+    <div id="chat-screen" class="screen">
+        <header class="chat-header">
+            <h2 id="chat-title" data-i18n-format="chatHeader">الدردشة مع {0}</h2>
+            <div class="header-actions">
+                <button id="settings-button" title="الإعدادات" data-i18n-title="settingsTitle"><i class="fas fa-cog"></i></button>
+                <button id="clear-chat-button" title="مسح المحادثة" data-i18n-title="clearChatTitle"><i class="fas fa-trash-alt"></i></button>
+            </div>
+        </header>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div id="typing-indicator-container"></div>
+        <div class="chat-input-area">
+            <textarea id="message-input" data-i18n-placeholder="messageInputPlaceholder" placeholder="اكتب سؤالك أو النص هنا..."></textarea>
+            <button id="send-button" class="send-button" title="إرسال" data-i18n-title="sendButtonTitle">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 data-i18n="settingsModalTitle"><i class="fas fa-cogs"></i> الإعدادات المتقدمة</h2>
+            <p data-i18n="settingsModalDesc">قم بتخصيص تجربتك مع المساعد الذكي.</p>
+            <div class="settings-options">
+                <button id="toggle-language-button" data-i18n="toggleLanguageButton">Switch to English</button> <!-- Will be updated by JS -->
+                <button id="change-name-button" data-i18n="changeNameButton">تغيير الاسم المنادى به</button>
+                <button id="export-chat-button" data-i18n="exportChatButton">تصدير المحادثة (نصي)</button>
+                <p style="font-size: 0.9em; color: var(--text-muted-color); margin-top:15px;" data-i18n="autosaveInfo">
+                    <i class="fas fa-info-circle"></i> يتم حفظ محادثاتك تلقائيًا في هذا المتصفح.
+                </p>
+                <button id="logout-button" class="danger" data-i18n="logoutButton">تسجيل الخروج (مسح بياناتي)</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const screens = {
+                welcome: document.getElementById('welcome-screen'),
+                auth: document.getElementById('auth-screen'),
+                chat: document.getElementById('chat-screen')
+            };
+            const settingsModal = document.getElementById('settings-modal');
+            const welcomeButton = document.getElementById('welcome-button');
+            const proceedToChatButton = document.getElementById('proceed-to-chat-button');
+            const displayNameInput = document.getElementById('displayName');
+            const chatTitle = document.getElementById('chat-title');
+            const chatMessagesContainer = document.getElementById('chat-messages');
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            const typingIndicatorContainer = document.getElementById('typing-indicator-container');
+            const settingsButton = document.getElementById('settings-button');
+            const clearChatButton = document.getElementById('clear-chat-button');
+            const closeSettingsModalButton = settingsModal.querySelector('.close-button');
+            const toggleLanguageButton = document.getElementById('toggle-language-button');
+            const changeNameButton = document.getElementById('change-name-button');
+            const exportChatButton = document.getElementById('export-chat-button');
+            const logoutButton = document.getElementById('logout-button');
+            // --- State Variables ---
+            const DB_KEY_USER = 'smartChatUser_v3_nameOnly';
+            const DB_KEY_CHATLOG = 'smartChatLog_v3';
+            const DB_KEY_AIMEMORY = 'smartChatAIMemory_v3';
+            const DB_KEY_LANGUAGE = 'smartChatLanguage_v3';
+            let currentUser = null; // Will be just { displayName: "name" }
+            let chatLog = [];
+            let aiMemory = { userPreferences: {}, lastTopic: null, conversationContext: [], mood: "neutral" };
+            let currentLanguage = 'ar'; // Default language
+            // --- Localization (i18n) ---
+            const i18n = {
+                ar: {
+                    welcomeTitle: "✨ مساعدك الذكي الشخصي ✨",
+                    welcomeMessage: "مستعد لخوض تجربة دردشة فريدة من نوعها، مبنية على أحدث (محاكاة) تقنيات الذكاء.",
+                    welcomeButton: "مرحباً بك! لنبدأ",
+                    authTitle: "مرحباً بك!",
+                    authMessage: "أنا مساعدك الذكي. لأتمكن من مناداتك باسمك وتخصيص تجربتنا معاً،",
+                    namePromptLabel: "ما هو اسمك الجميل؟",
+                    namePlaceholder: "اكتب اسمك هنا...",
+                    authButton: "هذا هو اسمي، لننطلق!",
+                    chatHeader: "الدردشة مع {0}",
+                    settingsTitle: "الإعدادات",
+                    clearChatTitle: "مسح المحادثة",
+                    messageInputPlaceholder: "اكتب سؤالك أو النص هنا...",
+                    sendButtonTitle: "إرسال",
+                    settingsModalTitle: "الإعدادات المتقدمة",
+                    settingsModalDesc: "قم بتخصيص تجربتك مع المساعد الذكي.",
+                    toggleLanguageButton: "Switch to English",
+                    changeNameButton: "تغيير الاسم المنادى به",
+                    exportChatButton: "تصدير المحادثة (نصي)",
+                    autosaveInfo: "يتم حفظ محادثاتك تلقائيًا في هذا المتصفح.",
+                    logoutButton: "تسجيل الخروج (مسح بياناتي)",
+
+                    aiErrorPrefix: "خطأ من {0}: ",
+                    aiNetworkError: "حدث خطأ في الشبكة عند محاولة الوصول إلى المساعد: {0}",
+
+                },
+                en: {
+                    welcomeTitle: "✨ Your Personal Smart Assistant ✨",
+                    welcomeMessage: "Ready for a unique chat experience, built on the latest (simulated) AI technologies.",
+                    welcomeButton: "Welcome! Let's Start",
+                    authTitle: "Welcome!",
+                    authMessage: "I'm your smart assistant. So I can call you by your name and personalize our experience together,",
+                    namePromptLabel: "What's your wonderful name?",
+                    namePlaceholder: "Enter your name here...",
+                    authButton: "That's my name, let's go!",
+                    chatHeader: "Chat with {0}",
+                    settingsTitle: "Settings",
+                    clearChatTitle: "Clear Conversation",
+                    messageInputPlaceholder: "Type your question or text here...",
+                    sendButtonTitle: "Send",
+                    settingsModalTitle: "Advanced Settings",
+                    settingsModalDesc: "Customize your experience with the smart assistant.",
+                    toggleLanguageButton: "التحويل إلى العربية",
+                    changeNameButton: "Change Nickname",
+                    exportChatButton: "Export Chat (Text)",
+                    autosaveInfo: "Your conversations are automatically saved in this browser.",
+                    logoutButton: "Logout (Clear My Data)",
+
+                    aiErrorPrefix: "Error from {0}: ",
+                    aiNetworkError: "A network error occurred while trying to reach the assistant: {0}",
+
+                }
+            };
+            function translateUI(lang) {
+                document.documentElement.lang = lang;
+                document.body.className = lang; // Switches body class for CSS direction/font
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.dataset.i18n;
+                    if (i18n[lang][key]) {
+                        el.textContent = i18n[lang][key];
+                    }
+                });
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                    const key = el.dataset.i18nPlaceholder;
+                    if (i18n[lang][key]) {
+                        el.placeholder = i18n[lang][key];
+                    }
+                });
+                 document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                    const key = el.dataset.i18nTitle;
+                    if (i18n[lang][key]) {
+                        el.title = i18n[lang][key];
+                    }
+                });
+                // Update chat header if user exists
+                if (currentUser && currentUser.displayName) {
+                    chatTitle.textContent = i18n[lang].chatHeader.replace('{0}', currentUser.displayName);
+                }
+                toggleLanguageButton.textContent = i18n[lang].toggleLanguageButton;
+            }
+            function getString(key, lang = currentLanguage, ...args) {
+                let str = i18n[lang]?.[key] || key; // Fallback to key if not found
+                if (args.length > 0) {
+                    args.forEach((arg, index) => {
+                        str = str.replace(new RegExp(`\\{${index}\\}`, 'g'), arg);
+                    });
+                }
+                return str;
+            }
+            // --- Core Functions ---
+            function initApp() {
+                loadLanguage(); // Load language first
+                translateUI(currentLanguage); // Apply loaded language
+                loadUser();
+                loadChatLog();
+                loadAIMemory();
+                if (currentUser && currentUser.displayName) {
+                    setupChatScreen(currentUser.displayName);
+                    showScreen('chat');
+                    renderChatLog();
+                    // Don't add a welcome back message here, let the flow handle it if new session
+                } else {
+                    showScreen('welcome');
+                }
+                bindEventListeners();
+            }
+            function showScreen(screenName) {
+                Object.values(screens).forEach(s => s.classList.remove('active'));
+                if (screens[screenName]) {
+                    screens[screenName].classList.add('active');
+                }
+            }
+            function loadUser() {
+                const userData = localStorage.getItem(DB_KEY_USER);
+                if (userData) currentUser = JSON.parse(userData);
+            }
+            function saveUser(name) {
+                currentUser = { displayName: name }; // Simplified user object
+                localStorage.setItem(DB_KEY_USER, JSON.stringify(currentUser));
+            }
+            function loadChatLog() {
+                const logData = localStorage.getItem(DB_KEY_CHATLOG);
+                if (logData) chatLog = JSON.parse(logData);
+            }
+            function saveChatLog() {
+                localStorage.setItem(DB_KEY_CHATLOG, JSON.stringify(chatLog));
+            }
+            function loadAIMemory() {
+                const memoryData = localStorage.getItem(DB_KEY_AIMEMORY);
+                if (memoryData) aiMemory = JSON.parse(memoryData);
+            }
+            function saveAIMemory() {
+                localStorage.setItem(DB_KEY_AIMEMORY, JSON.stringify(aiMemory));
+            }
+             function loadLanguage() {
+                const lang = localStorage.getItem(DB_KEY_LANGUAGE);
+                if (lang && (lang === 'ar' || lang === 'en')) {
+                    currentLanguage = lang;
+                }
+            }
+            function saveLanguage(lang) {
+                currentLanguage = lang;
+                localStorage.setItem(DB_KEY_LANGUAGE, lang);
+            }
+            function setupChatScreen(name) {
+                chatTitle.textContent = getString('chatHeader', currentLanguage, name);
+            }
+            function bindEventListeners() {
+                welcomeButton.addEventListener('click', () => showScreen('auth'));
+                proceedToChatButton.addEventListener('click', () => {
+                    const name = displayNameInput.value.trim();
+                    if (!name) {
+                        alert(getString('aiNameEmptyError')); // Use localized error
+                        displayNameInput.focus();
+                        return;
+                    }
+                    saveUser(name);
+                    setupChatScreen(name);
+                    chatLog = []; 
+                    aiMemory = { userPreferences: {}, lastTopic: null, conversationContext: [], mood: "neutral" };
+                    saveChatLog();
+                    saveAIMemory();
+                    renderChatLog();
+                    showScreen('chat');
+                    // AI's personalized welcome
+                    const welcomeWithName = getString('aiWelcomeWithName', currentLanguage, name);
+                    const readyPrompt = getString('aiReadyPrompt', currentLanguage);
+                    addMessageToLog(welcomeWithName, 'ai', 'المساعد الذكي');
+                    renderChatLog(); // Render first AI message
+                    // Simulate a slight delay before the next prompt
+                    setTimeout(() => {
+                        addMessageToLog(readyPrompt, 'ai', 'المساعد الذكي');
+                        renderChatLog();
+                    }, 1500);
+                    messageInput.focus();
+                });
+                sendButton.addEventListener('click', handleSendMessage);
+                messageInput.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        handleSendMessage();
+                    }
+                });
+                messageInput.addEventListener('input', autoGrowTextarea);
+                settingsButton.addEventListener('click', () => settingsModal.classList.add('active'));
+                closeSettingsModalButton.addEventListener('click', () => settingsModal.classList.remove('active'));
+                window.addEventListener('click', (event) => {
+                    if (event.target == settingsModal) settingsModal.classList.remove('active');
+                });
+                clearChatButton.addEventListener('click', () => {
+                    if (confirm(getString('aiClearChatConfirm', currentLanguage, currentUser.displayName))) {
+                        chatLog = [];
+                        saveChatLog();
+                        renderChatLog();
+                        addSystemMessage(getString('aiChatCleared'));
+                        aiMemory.conversationContext = [];
+                        aiMemory.lastTopic = null;
+                        saveAIMemory();
+                    }
+                });
+                toggleLanguageButton.addEventListener('click', () => {
+                    const newLang = currentLanguage === 'ar' ? 'en' : 'ar';
+                    saveLanguage(newLang);
+                    translateUI(newLang);
+                    // Re-render chat log with new language for system/AI messages if needed, or just new messages
+                    // For simplicity, existing log messages won't be re-translated.
+                    addSystemMessage(newLang === 'ar' ? "تم تغيير اللغة إلى العربية." : "Language switched to English.");
+                });
+                changeNameButton.addEventListener('click', handleChangeName);
+                exportChatButton.addEventListener('click', handleExportChat);
+                logoutButton.addEventListener('click', handleLogout);
+            }
+            function autoGrowTextarea() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            }
+            function handleSendMessage() {
+                const messageText = messageInput.value.trim();
+                if (messageText && currentUser) {
+                    addMessageToLog(messageText, 'user', currentUser.displayName);
+                    aiMemory.conversationContext.push({sender: 'user', text: messageText});
+                    if (aiMemory.conversationContext.length > 5) aiMemory.conversationContext.shift();
+                    saveAIMemory();
+                    renderChatLog();
+                    messageInput.value = '';
+                    autoGrowTextarea.call(messageInput);
+                    
+                    // New: Call the real AI backend
+                    callRealAIBackend(messageText, currentUser.displayName);
+
+                }
+            }
+            function addMessageToLog(text, senderType, senderName) {
+                const message = {
+                    text: text,
+                    senderType: senderType,
+                    senderName: senderType === 'ai' ? getString('المساعد الذكي') : senderName, // Localize AI sender name
+                    timestamp: new Date().toISOString()
+                };
+                chatLog.push(message);
+                saveChatLog();
+            }
+            function addSystemMessage(text) {
+                // System messages are not typically translated after the fact,
+                // so their initial language depends on currentLanguage when called.
+                addMessageToLog(text, 'system', 'النظام');
+                renderChatLog();
+            }
+            function renderChatLog() {
+                chatMessagesContainer.innerHTML = '';
+                chatLog.forEach(msg => {
+                    const senderDisplayName = msg.senderType === 'ai' ? getString('المساعد الذكي') : msg.senderName;
+                    appendMessageToDOM(msg.text, msg.senderType, senderDisplayName, new Date(msg.timestamp));
+                });
+                chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            }
+            function appendMessageToDOM(text, senderType, senderName, timestamp) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message', senderType);
+                if (senderType !== 'system') {
+                    const senderElement = document.createElement('div');
+                    senderElement.classList.add('sender');
+                    senderElement.textContent = senderName;
+                    messageElement.appendChild(senderElement);
+                }
+                const textElement = document.createElement('div');
+                textElement.textContent = text;
+                const timeElement = document.createElement('div');
+                timeElement.classList.add('timestamp');
+                timeElement.textContent = timestamp.toLocaleTimeString(currentLanguage === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+                messageElement.appendChild(textElement);
+                messageElement.appendChild(timeElement);
+                chatMessagesContainer.appendChild(messageElement);
+            }
+            function showTypingIndicator() {
+                const indicatorHTML = `<div class="typing-indicator"><span></span><span></span><span></span></div>`;
+                typingIndicatorContainer.innerHTML = indicatorHTML;
+                chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            }
+            function hideTypingIndicator() {
+                typingIndicatorContainer.innerHTML = '';
+            }
+            
+            function callRealAIBackend(userMessage, userName) {
+                showTypingIndicator();
+                sendButton.disabled = true;
+                messageInput.disabled = true;
+
+                fetch('http://localhost:5000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: userMessage, user: userName }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.error || 'Network response was not ok'); });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.reply) {
+                        addMessageToLog(data.reply, 'ai', getString('المساعد الذكي')); // Sender name localized
+                        aiMemory.conversationContext.push({sender: 'ai', text: data.reply});
+                        if (aiMemory.conversationContext.length > 5) aiMemory.conversationContext.shift();
+                        saveAIMemory(); // Still useful for client-side context if needed
+                        renderChatLog();
+                    } else if (data.error) {
+                        addSystemMessage(getString('aiErrorPrefix', currentLanguage, 'Server') + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error calling AI backend:', error);
+                    addSystemMessage(getString('aiNetworkError', currentLanguage, error.message));
+                })
+                .finally(() => {
+                    hideTypingIndicator();
+                    sendButton.disabled = false;
+                    messageInput.disabled = false;
+                    messageInput.focus();
+                });
+            }
+
+            // --- Settings Modal Functions ---
+
+            function handleChangeName() {
+                const newName = prompt(getString('aiNameChangePrompt', currentLanguage, currentUser.displayName), currentUser.displayName);
+                if (newName && newName.trim() !== "") {
+                    const oldName = currentUser.displayName;
+                    currentUser.displayName = newName.trim();
+                    localStorage.setItem(DB_KEY_USER, JSON.stringify(currentUser));
+                    setupChatScreen(currentUser.displayName);
+                    addSystemMessage(getString('aiNameChanged', currentLanguage, oldName, currentUser.displayName));
+                    settingsModal.classList.remove('active');
+                } else if (newName !== null) {
+                    alert(getString('aiNameEmptyError'));
+                }
+            }
+            function handleExportChat() {
+                // ... (export logic remains largely the same, just ensure any static text is translatable if needed)
+                let chatText = `${getString('Chat history with Smart Assistant for user:', currentLanguage)} ${currentUser.displayName}\n`;
+                chatText += `${getString('Export date:', currentLanguage)} ${new Date().toLocaleString(currentLanguage === 'ar' ? 'ar-EG' : 'en-US')}\n\n`;
+                chatLog.forEach(msg => {
+                    const time = new Date(msg.timestamp).toLocaleTimeString(currentLanguage === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+                    const senderDisplayName = msg.senderType === 'ai' ? getString('المساعد الذكي') : msg.senderName;
+                    chatText += `[${time}] ${senderDisplayName}: ${msg.text}\n`;
+                });
+                const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `chat_export_${currentUser.displayName}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                addSystemMessage(getString('aiChatExported'));
+                settingsModal.classList.remove('active');
+            }
+            function handleLogout() {
+                if (confirm(getString('aiLogoutConfirm', currentLanguage, currentUser.displayName))) {
+                    localStorage.removeItem(DB_KEY_USER);
+                    localStorage.removeItem(DB_KEY_CHATLOG);
+                    localStorage.removeItem(DB_KEY_AIMEMORY);
+                    localStorage.removeItem(DB_KEY_LANGUAGE); // Clear language pref on logout
+                    currentUser = null;
+                    chatLog = [];
+                    aiMemory = { userPreferences: {}, lastTopic: null, conversationContext: [], mood: "neutral" };
+                    displayNameInput.value = ''; // Clear the input on auth screen
+                    currentLanguage = 'ar'; // Reset to default language
+                    translateUI(currentLanguage); // Apply default lang
+                    settingsModal.classList.remove('active');
+                    showScreen('welcome');
+                }
+            }
+            initApp();
+        });
+    </script>
+</body>
+</html>
